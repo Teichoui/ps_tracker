@@ -2,11 +2,12 @@
 -- DanNet-aware Power Source tracker for all toons.
 --
 -- Features:
---   * Scans equipped PS and bags every 5s
---   * Broadcasts status to all toons via DanNet actors
---   * Auto-swaps a spent PS for the best fresh one in bags (same role)
---   * ImGui overlay: everyone's PS name, tier, charge state, status
---   * Trade hints: "ask Tankname (Emberquartz Slayer T9)" for toons missing a PS
+--   * Scans equipped PS and bags every 5s; broadcasts state to all toons via DanNet actors
+--   * ImGui overlay: each toon's PS name, tier, power % (or charges), and status
+--   * Auto-swaps a spent PS for the best fresh one in bags (role-matched, tier-sorted)
+--   * Auto-converts sealed PS items via ItemDisplayWindow before equipping
+--   * Auto-accepts incoming PS trades and equips the received item
+--   * Trade/Swap buttons in the UI to coordinate PS distribution across the group
 --
 -- Install:  copy the ps_tracker/ folder into MQ/lua/
 -- Run on every toon:  /lua run ps_tracker
