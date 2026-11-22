@@ -12,6 +12,10 @@ cd readguides && pip install -r requirements.txt && python automation/fetch_sour
 git clone https://github.com/macroquest/mq-definitions.git # LuaLS type annotations for the whole MQ Lua API
 ```
 
+Local paths on this machine:
+- readguides: `C:\readguides\` (docs in `C:\readguides\docs\projects\`)
+- mq-definitions: `C:\mq-definitions\`
+
 - **mq-definitions** the definitive set of Lua code definitions for Macroquest, ImGui Lua Bindings w/custom features, and Macroquest core Lua helpers.
 - **readguides** docs for macroquest and community-written plugins. The fetch step writes every project's Markdown to `docs/projects/` (build product; corrections go upstream). `projects/macroquest/lua/` covers the `mq` module, `projects/macroquest/reference/` core TLOs, datatypes, commands and spawn-search; `projects/<name>/` community plugins (`mq2nav`, `mq2dannet`, `mq2cast`, `mq2remote`, ...).
 - **The user's install**: the folder holding `MacroQuest.exe`. `lua/` scripts (one folder each), `config/` settings, `macros/`, `plugins/`. Users may run several installs for different server types.
