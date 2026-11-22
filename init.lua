@@ -42,46 +42,46 @@ end
 local PS_DB = {
     -- Tier 11 — Shattering of Ro: Riven Arcana (current highest, level 129)
     -- Uses "Protector" for tank (same convention as Emberquartz, not Luclinite's "Defender")
-    ['Riven Arcana Slayer Source']             = { tier=11, role='melee'  },
-    ['Riven Arcana Protector Source']          = { tier=11, role='tank'   },
-    ['Riven Arcana Conjuror Source']           = { tier=11, role='caster' },
-    ['Riven Arcana Wayfarer Source']           = { tier=11, role='healer' },
+    ["Riven Arcana Slayer Source"]             = { tier=11, role='melee'  },
+    ["Riven Arcana Protector Source"]          = { tier=11, role='tank'   },
+    ["Riven Arcana Conjuror Source"]           = { tier=11, role='caster' },
+    ["Riven Arcana Wayfarer Source"]           = { tier=11, role='healer' },
     -- Sealed variants (need right-click convert before they can be equipped)
-    ['Sealed Riven Arcana Slayer Source']      = { tier=11, role='melee',  sealed=true },
-    ['Sealed Riven Arcana Protector Source']   = { tier=11, role='tank',   sealed=true },
-    ['Sealed Riven Arcana Conjuror Source']    = { tier=11, role='caster', sealed=true },
-    ['Sealed Riven Arcana Wayfarer Source']    = { tier=11, role='healer', sealed=true },
+    ["Sealed Riven Arcana Slayer Source"]      = { tier=11, role='melee',  sealed=true },
+    ["Sealed Riven Arcana Protector Source"]   = { tier=11, role='tank',   sealed=true },
+    ["Sealed Riven Arcana Conjuror Source"]    = { tier=11, role='caster', sealed=true },
+    ["Sealed Riven Arcana Wayfarer Source"]    = { tier=11, role='healer', sealed=true },
     -- Tier 10 — Laurion's Song: Unparalleled (seasonal/quest)
-    ['Unparalleled Slayer Source']    = { tier=10, role='melee'  },
-    ['Unparalleled Defender Source']  = { tier=10, role='tank'   },
-    ['Unparalleled Conjuror Source']  = { tier=10, role='caster' },
-    ['Unparalleled Wayfarer Source']  = { tier=10, role='healer' },
+    ["Unparalleled Slayer Source"]    = { tier=10, role='melee'  },
+    ["Unparalleled Defender Source"]  = { tier=10, role='tank'   },
+    ["Unparalleled Conjuror Source"]  = { tier=10, role='caster' },
+    ["Unparalleled Wayfarer Source"]  = { tier=10, role='healer' },
     -- Tier 9 — Laurion's Song: Emberquartz (standard current)
-    ['Emberquartz Slayer Source']     = { tier=9,  role='melee'  },
-    ['Emberquartz Protector Source']  = { tier=9,  role='tank'   },
-    ['Emberquartz Conjuror Source']   = { tier=9,  role='caster' },
-    ['Emberquartz Wayfarer Source']   = { tier=9,  role='healer' },
+    ["Emberquartz Slayer Source"]     = { tier=9,  role='melee'  },
+    ["Emberquartz Protector Source"]  = { tier=9,  role='tank'   },
+    ["Emberquartz Conjuror Source"]   = { tier=9,  role='caster' },
+    ["Emberquartz Wayfarer Source"]   = { tier=9,  role='healer' },
     -- Tier 8 — Terror of Luclin: Luclinite
-    ['Luclinite Attacker Source']     = { tier=8,  role='melee'  },
-    ['Luclinite Defender Source']     = { tier=8,  role='tank'   },
-    ['Luclinite Convoker Source']     = { tier=8,  role='caster' },
-    ['Luclinite Mendicant Source']    = { tier=8,  role='healer' },
+    ["Luclinite Attacker Source"]     = { tier=8,  role='melee'  },
+    ["Luclinite Defender Source"]     = { tier=8,  role='tank'   },
+    ["Luclinite Convoker Source"]     = { tier=8,  role='caster' },
+    ["Luclinite Mendicant Source"]    = { tier=8,  role='healer' },
     -- Tier 7 — Night of Shadows: Shadowstone (verify exact names in-game)
-    ['Shadowstone Attacker Source']   = { tier=7,  role='melee'  },
-    ['Shadowstone Defender Source']   = { tier=7,  role='tank'   },
-    ['Shadowstone Convoker Source']   = { tier=7,  role='caster' },
-    ['Shadowstone Mendicant Source']  = { tier=7,  role='healer' },
+    ["Shadowstone Attacker Source"]   = { tier=7,  role='melee'  },
+    ["Shadowstone Defender Source"]   = { tier=7,  role='tank'   },
+    ["Shadowstone Convoker Source"]   = { tier=7,  role='caster' },
+    ["Shadowstone Mendicant Source"]  = { tier=7,  role='healer' },
     -- Tier 5-4 — older generic sources
     ["Xorbb's Caged Hatred"]          = { tier=5,  role='all'    },
-    ['Thaell Ew Totem']               = { tier=4,  role='all'    },
-    ['Ocean Purification Stone']      = { tier=4,  role='all'    },
-    ['Geomantic Steelstone']          = { tier=4,  role='all'    },
-    ['Combine Power Shard']           = { tier=4,  role='all'    },
+    ["Thaell Ew Totem"]               = { tier=4,  role='all'    },
+    ["Ocean Purification Stone"]      = { tier=4,  role='all'    },
+    ["Geomantic Steelstone"]          = { tier=4,  role='all'    },
+    ["Combine Power Shard"]           = { tier=4,  role='all'    },
     -- Tier 3 — Ring of Scale / earlier
-    ['Cliff Stone']                   = { tier=3,  role='all'    },
-    ['Enchanted Dragon Scale']        = { tier=3,  role='all'    },
-    ['Scorpikis Worry Stone']         = { tier=3,  role='all'    },
-    ['Magma Stone']                   = { tier=3,  role='all'    },
+    ["Cliff Stone"]                   = { tier=3,  role='all'    },
+    ["Enchanted Dragon Scale"]        = { tier=3,  role='all'    },
+    ["Scorpikis Worry Stone"]         = { tier=3,  role='all'    },
+    ["Magma Stone"]                   = { tier=3,  role='all'    },
 }
 
 local CLASS_ROLE = {
@@ -110,6 +110,7 @@ local peers         = {}
 local myName        = mq.TLO.Me.Name()
 local myClass       = mq.TLO.Me.Class.ShortName()
 local myRole        = CLASS_ROLE[myClass] or 'melee'
+local myServer      = mq.TLO.EverQuest.Server() or ''
 local equippedCache = nil
 local bagsCache     = {}
 local lastScan      = 0
@@ -419,6 +420,9 @@ if actors then
         if not message or not message.content then return end
         local d = message.content
         if type(d) ~= 'table' then return end
+        -- Actors broadcast across all MQ instances, including different servers.
+        -- Discard messages from other servers (e.g. Live vs EMU on same machine).
+        if d.server ~= myServer then return end
         -- Trade request: {type='do_trade', dest=name, item=name}
         if d.type == 'do_trade' and d.dest and d.item then
             tradeSM.active    = true
@@ -447,6 +451,7 @@ end
 
 local function buildStatus()
     return {
+        server   = myServer,
         name     = myName,
         class    = myClass,
         role     = myRole,
@@ -879,7 +884,11 @@ local function renderUI()
 
     imgui.SetNextWindowSize(880, 290, ImGuiCond.FirstUseEver)
     local _psWinFlags = ImGuiWindowFlags.HorizontalScrollbar
-    if not imgui.Begin('Power Source Tracker##ps_tracker', true, _psWinFlags) then
+    -- imgui.Begin returns (pOpen, shouldDraw): update showUI from the X-button state,
+    -- check shouldDraw so we skip rendering (and avoid style-stack corruption) when collapsed.
+    local open
+    showUI, open = imgui.Begin('Power Source Tracker##ps_tracker', showUI, _psWinFlags)
+    if not open then
         imgui.End()
         return
     end
