@@ -1,0 +1,7 @@
+# MacroQuest / EQ runtime files
+*.log
+*.bak
+
+# Windows
+Thumbs.db
+desktop.ini
