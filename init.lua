@@ -248,14 +248,12 @@ local function getPSInBags()
         end
     end
 
-    -- Sort: non-sealed fresh first (best tier), then sealed fresh, then spent
+    -- Sort: highest tier first; within the same tier, unsealed before sealed; spent last.
     table.sort(found, function(a, b)
-        -- spent items last
         if a.spent ~= b.spent then return not a.spent end
-        -- among fresh: non-sealed before sealed
+        if a.tier  ~= b.tier  then return a.tier > b.tier end
         if a.sealed ~= b.sealed then return not a.sealed end
-        -- within same group: higher tier first
-        return a.tier > b.tier
+        return false
     end)
     return found
 end
@@ -466,27 +464,26 @@ local function broadcastStatus()
 end
 
 -- ============================================================
--- Find who can supply a PS to a needy toon
--- Prefers non-sealed items; falls back to sealed (with sealed=true flag).
+-- Find who can supply a PS to a needy toon.
+-- Picks the highest-tier fresh item; within the same tier, an unsealed
+-- copy beats a sealed one so we don't crack a sealed item unnecessarily.
 -- Returns: { peer=name, item=item, sealed=bool } or nil
 -- ============================================================
 local function findTradeSource(forRole)
-    local best      = nil   -- best non-sealed fresh item from self or a peer
-    local bestSeal  = nil   -- best sealed fresh item from self or a peer (fallback)
-    local now       = os.time()
+    local best = nil
+    local now  = os.time()
+
+    local function isBetter(candidate, cur)
+        if not cur then return true end
+        if candidate.tier ~= cur.item.tier then return candidate.tier > cur.item.tier end
+        -- Same tier: prefer unsealed over sealed
+        return not candidate.sealed and cur.item.sealed
+    end
 
     -- Check local bags (bagsCache always reflects the most recent scan)
     for _, item in ipairs(bagsCache) do
-        if not item.spent and roleMatches(item.role, forRole) then
-            if not item.sealed then
-                if not best or item.tier > best.item.tier then
-                    best = { peer = myName, item = item, sealed = false }
-                end
-            else
-                if not bestSeal or item.tier > bestSeal.item.tier then
-                    bestSeal = { peer = myName, item = item, sealed = true }
-                end
-            end
+        if not item.spent and roleMatches(item.role, forRole) and isBetter(item, best) then
+            best = { peer = myName, item = item, sealed = item.sealed }
         end
     end
 
@@ -494,22 +491,14 @@ local function findTradeSource(forRole)
     for _, peer in pairs(peers) do
         if peer.name ~= myName and (now - (peer.ts or 0)) <= PEER_TIMEOUT_S then
             for _, item in ipairs(peer.bags or {}) do
-                if not item.spent and roleMatches(item.role, forRole) then
-                    if not item.sealed then
-                        if not best or item.tier > best.item.tier then
-                            best = { peer = peer.name, item = item, sealed = false }
-                        end
-                    else
-                        if not bestSeal or item.tier > bestSeal.item.tier then
-                            bestSeal = { peer = peer.name, item = item, sealed = true }
-                        end
-                    end
+                if not item.spent and roleMatches(item.role, forRole) and isBetter(item, best) then
+                    best = { peer = peer.name, item = item, sealed = item.sealed }
                 end
             end
         end
     end
-    -- Non-sealed preferred; sealed only if nothing better exists
-    return best or bestSeal
+
+    return best
 end
 
 -- ============================================================
