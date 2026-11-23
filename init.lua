@@ -306,7 +306,16 @@ local function trySwapPS(force, strict)
             end
         end
     else
-        -- Normal mode: walk the full ROLE_FALLBACK chain (any PS beats none).
+        -- Normal mode: before falling back to a wrong-role PS, check whether a
+        -- sealed correct-role item exists that equipSM can convert.  Prefer
+        -- converting the right item over equipping a wrong-role stopgap.
+        for _, item in ipairs(bagsCache) do
+            if not item.spent and item.sealed
+               and (item.role == myRole or item.role == 'all') then
+                return false   -- caller should trigger equipSM convert path
+            end
+        end
+        -- No sealed correct-role item — walk the full ROLE_FALLBACK chain.
         local priorities = ROLE_FALLBACK[myRole] or {myRole, 'all'}
         for _, tryRole in ipairs(priorities) do
             for _, item in ipairs(bagsCache) do
@@ -1390,6 +1399,28 @@ while running do
                 bagsCache              = getPSInBags()
                 peers[myName].equipped = equippedCache
                 peers[myName].bags     = sanitizeBags(bagsCache)
+            elseif equipSM.phase == 0 then
+                -- trySwapPS found a sealed correct-role item and stepped aside;
+                -- kick off the convert path the same way pendingForceSwap does.
+                local src = findTradeSource(myRole)
+                if src and src.peer == myName and src.item.sealed then
+                    local packItem
+                    if src.item.slot == 0 then
+                        packItem = mq.TLO.Me.Inventory(('pack%d'):format(src.item.bag))
+                    else
+                        packItem = mq.TLO.Me.Inventory(('pack%d'):format(src.item.bag)).Item(src.item.slot)
+                    end
+                    if packItem and packItem() then
+                        printf('\ay[PS]\ax Auto-equip: converting sealed \ag%s\ax (T%d) in own bags',
+                               src.item.name, src.item.tier)
+                        packItem.Inspect()
+                        equipSM.best              = src.item
+                        equipSM.phase             = 1
+                        equipSM.nextAt            = now + 400
+                        equipSM.convertBtnClicked = false
+                        equipSM.convertAttempts   = 0
+                    end
+                end
             end
         end
 
