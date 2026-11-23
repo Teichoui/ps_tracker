@@ -354,7 +354,8 @@ local function trySwapPS(force, strict)
         -- even with /ctrl.  Click Yes if it appears.
         if mq.TLO.Window('ConfirmationDialogBox').Open() then
             printf('\ay[PS]\ax Attune confirmation dialog — clicking Yes')
-            mq.TLO.Window('ConfirmationDialogBox').Child('CD_Yes_Button').LeftMouseUp()
+            local yesBtn = mq.TLO.Window('ConfirmationDialogBox').Child('CD_Yes_Button')
+            if yesBtn and yesBtn() then yesBtn.LeftMouseUp() end
             mq.delay('300ms')
         end
 
@@ -391,7 +392,8 @@ local function trySwapPS(force, strict)
         -- even with /ctrl.  Click Yes if it appears.
         if mq.TLO.Window('ConfirmationDialogBox').Open() then
             printf('\ay[PS]\ax Attune confirmation dialog — clicking Yes')
-            mq.TLO.Window('ConfirmationDialogBox').Child('CD_Yes_Button').LeftMouseUp()
+            local yesBtn = mq.TLO.Window('ConfirmationDialogBox').Child('CD_Yes_Button')
+            if yesBtn and yesBtn() then yesBtn.LeftMouseUp() end
             mq.delay('300ms')
         end
 
@@ -1033,7 +1035,7 @@ local function renderUI()
                         -- remote toon: send actor message
                         mailbox:send(
                             {character=entry.name, script='ps_tracker', mailbox='ps_tracker'},
-                            {type='do_swap'}
+                            {type='do_swap', server=myServer}
                         )
                     end
                 end
@@ -1060,7 +1062,7 @@ local function renderUI()
                             -- standalone actor clients (external apps) — wrong field.
                             mailbox:send(
                                 { character=src.peer, script='ps_tracker', mailbox='ps_tracker' },
-                                { type='do_trade', dest=entry.name, item=src.item.name }
+                                { type='do_trade', dest=entry.name, item=src.item.name, server=myServer }
                             )
                             printf('\ay[PS]\ax Sent trade request to \at%s\ax: give %s to %s',
                                 src.peer, src.item.name, entry.name)
@@ -1130,17 +1132,33 @@ mq.bind('/ps', function(arg)
         bagsCache = getPSInBags()
         local sealed = nil
         for _, item in ipairs(bagsCache) do
-            if item.sealed then
-                sealed = item
-                break
-            end
+            if item.sealed then sealed = item; break end
         end
         if not sealed then
             printf('\ay[PS]\ax No sealed PS found in bags to convert.')
         else
-            printf('\ay[PS]\ax Converting \ag%s\ax (pack%d slot %d) — right-clicking...',
-                   sealed.name, sealed.bag, sealed.slot)
-            mq.cmdf('/itemnotify in pack%d %d rightmouseup', sealed.bag, sealed.slot)
+            -- Use Inspect() + IDW_ConvertButton — same path as auto-equip.
+            -- The old /itemnotify rightmouseup approach requires the bag window
+            -- to be open and fails silently when it isn't.
+            local packItem
+            if sealed.slot == 0 then
+                packItem = mq.TLO.Me.Inventory(('pack%d'):format(sealed.bag))
+            else
+                packItem = mq.TLO.Me.Inventory(('pack%d'):format(sealed.bag)).Item(sealed.slot)
+            end
+            if packItem and packItem() then
+                printf('\ay[PS]\ax Converting \ag%s\ax (pack%d slot %d) — opening ItemDisplayWindow...',
+                       sealed.name, sealed.bag, sealed.slot)
+                packItem.Inspect()
+                -- arm the equipSM convert path so it clicks the button on the next tick
+                equipSM.best              = sealed
+                equipSM.phase             = 1
+                equipSM.nextAt            = mq.gettime() + 400
+                equipSM.convertBtnClicked = false
+                equipSM.convertAttempts   = 0
+            else
+                printf('\ar[PS]\ax Convert: cannot access item TLO for %s — aborting.', sealed.name)
+            end
         end
     else
         printf('\ay[PS]\ax /ps stop | ui | swap | scan | convert')
@@ -1211,11 +1229,12 @@ local function tradeStep()
         end
 
         if tradeSM.openTries >= 5 then
-            -- Return cursor item to bags if we bailed out
+            -- Return cursor item to bags if we bailed out; defer the abort one tick
+            -- so /autoinventory has time to land before we clear the state machine.
             if mq.TLO.Cursor() then
                 printf('\ay[PS]\ax [trade:open] returning cursor item to bags')
                 mq.cmd('/autoinventory')
-                mq.delay('300ms')
+                tradeSM.nextTick = now + 300
             end
             printf('\ar[PS]\ax Could not open trade with %s after %d tries — aborting.', tradeSM.destName, tradeSM.openTries)
             tradeSM.active = false
@@ -1224,19 +1243,28 @@ local function tradeStep()
         end
 
         if not mq.TLO.Cursor() then
-            -- Step 1: find the item and pick it up onto the cursor
+            -- Step 1: find the item and pick it up onto the cursor.
+            -- Check both top-level pack slots (slot==0) and items inside bags.
             local found = false
             for bag = 1, 10 do
                 local pack = mq.TLO.Me.Inventory(('pack%d'):format(bag))
-                if pack and pack() and (pack.Container() or 0) > 0 then
-                    for slot = 1, pack.Container() do
-                        local it = pack.Item(slot)
-                        if it and it() and it.Name() == tradeSM.itemName then
-                            printf('\ay[PS]\ax [trade:open] picking up "%s" from pack%d slot %d',
-                                tradeSM.itemName, bag, slot)
-                            mq.cmdf('/shift /itemnotify in pack%d %d leftmouseup', bag, slot)
-                            found = true
-                            break
+                if pack and pack() then
+                    -- Top-level pack slot (item sits directly in the pack slot)
+                    if pack.Name() == tradeSM.itemName then
+                        printf('\ay[PS]\ax [trade:open] picking up "%s" from pack%d (top-level)',
+                            tradeSM.itemName, bag)
+                        mq.cmdf('/shift /itemnotify pack%d leftmouseup', bag)
+                        found = true
+                    elseif (pack.Container() or 0) > 0 then
+                        for slot = 1, pack.Container() do
+                            local it = pack.Item(slot)
+                            if it and it() and it.Name() == tradeSM.itemName then
+                                printf('\ay[PS]\ax [trade:open] picking up "%s" from pack%d slot %d',
+                                    tradeSM.itemName, bag, slot)
+                                mq.cmdf('/shift /itemnotify in pack%d %d leftmouseup', bag, slot)
+                                found = true
+                                break
+                            end
                         end
                     end
                 end
@@ -1343,7 +1371,7 @@ while running do
                     elseif mailbox then
                         mailbox:send(
                             {character=src.peer, script='ps_tracker', mailbox='ps_tracker'},
-                            {type='do_trade', dest=myName, item=src.item.name}
+                            {type='do_trade', dest=myName, item=src.item.name, server=myServer}
                         )
                         printf('\ay[PS]\ax No PS in bags — requesting trade from \at%s\ax (%s)',
                                src.peer, src.item.name)
