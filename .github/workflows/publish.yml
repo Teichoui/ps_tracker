@@ -1,0 +1,53 @@
+name: Publish to RedGuides
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Setup check: the RedGuides resource id lives in a repository variable
+      # (Settings > Secrets and variables > Actions > Variables > REDGUIDES_RESOURCE_ID).
+      - name: Check RedGuides setup
+        env:
+          RESOURCE_ID: ${{ vars.REDGUIDES_RESOURCE_ID }}
+        run: |
+          if [[ ! "$RESOURCE_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::Repository variable REDGUIDES_RESOURCE_ID is empty or not numeric. Create it under Settings > Secrets and variables > Actions > Variables (the number from the RedGuides resource URL), then re-run."
+            exit 1
+          fi
+
+      # The tag is passed through an environment variable, never interpolated into the script.
+      - name: Validate release tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' is not a release tag of the form vMAJOR.MINOR.PATCH (for example v1.2.3). Nothing was published."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Build release zip
+        run: |
+          mkdir -p dist/ps_tracker
+          cp init.lua README.md dist/ps_tracker/
+          cd dist
+          zip -r ../release.zip ps_tracker/
+
+      - name: Publish to RedGuides
+        uses: RedGuides/redguides-publish@v1
+        env:
+          REDGUIDES_API_KEY: ${{ secrets.REDGUIDES_API_KEY }}
+        with:
+          resource_id: ${{ vars.REDGUIDES_RESOURCE_ID }}
+          description: 'README.md'
+          version: ${{ github.ref_name }}
+          file: 'release.zip'
+          domain: 'https://raw.githubusercontent.com/Teichoui/ps_tracker/main/'
