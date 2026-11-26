@@ -9,6 +9,9 @@ DanNet-aware Power Source tracker and auto-swap for EverQuest boxing crews.
 - Handles sealed PS items: opens ItemDisplayWindow, clicks Convert, equips the result (only if it fits your role and is an upgrade)
 - Coordinates trades across toons: the UI shows who has a spare and a Trade button; trades are only ever requested by a click, never automatically
 - Broadcasts PS state to all peers via the MacroQuest actors module
+- Trades a single Power Source out of a stack (ctrl-click split), with a handshake between giver and recipient, a cursor check before every pickup, and a verify step afterwards
+- Start All / Stop All / Restart All buttons run the script on every DanNet peer from one toon
+- Never destroys or deletes items; see Safety notes
 
 ## Requirements
 
@@ -54,6 +57,12 @@ Run on every toon:
 - Convert is irreversible, so it is only clicked when ItemDisplayWindow shows exactly the intended sealed item, and the result is accepted only when the count of the matching unsealed item (bags plus cursor) rose compared with just before the click, or the sealed source is gone; an unsealed item on the cursor without that evidence is left alone and never equipped. A confirmation dialog about attuning is only answered with Yes when it was not already open before the script's own click and does not name a different Power Source. Right before an equip click the powersource slot is re-checked; if it changed, the picked-up item is put away and the worn item is left alone.
 - Peer names are only used in commands when they are letters only.
 - Trade navigation uses exact-name spawn searches with a timeout and try limit; `/nav stop` is only sent for a navigation this script started. `/moveto` is only used when MQ2MoveUtils is loaded and MQ2Nav is not; it is issued once, and `/moveto off` is sent when the run arrives, aborts or the script stops.
+
+## Tested status
+
+Tested in game on Live: peer discovery, Start All, stack split by ctrl-click, a full give/accept trade, sealed convert with the attune prompt, and equip. Not yet tested in game: Stop All and Restart All, cancelled or timed-out trades, stopping the script mid-trade, the Quantity window branch, and whether the Cancel button click cancels a trade on the server. Reports are welcome.
+
+The Trade button appears on your own row (to request a Power Source for yourself) and, on a spare-holder's row, only when you are the giver.
 
 ## Power Source database
 
