@@ -15,9 +15,9 @@ DanNet-aware Power Source tracker and auto-swap for EverQuest boxing crews.
 
 ## Requirements
 
-- MacroQuest with Lua support
-- MQ2DanNet (only for the Start All / Stop All / Restart All buttons)
-- MQ2Nav or MQ2MoveUtils (for trade navigation; falls back to /moveto if Nav is absent)
+- MacroQuest with Lua support (the actors module that ps_tracker uses to talk to your other toons is built in)
+- MQ2DanNet: optional, only for the Start All / Stop All / Restart All buttons
+- MQ2Nav (preferred) or MQ2MoveUtils (fallback, uses /moveto): optional, only for walking to a trade partner. Without either, tracking, converting and equipping still work, and a trade is cancelled with a message
 
 ## Install
 
