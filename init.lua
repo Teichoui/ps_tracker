@@ -16,6 +16,8 @@
 -- Run on every toon:  /lua run ps_tracker
 -- Commands:
 --   /ps stop      - stop the script
+-- UI buttons: Stop All stops ps_tracker on the other toons through the actor layer (no extra
+-- plugin); Start All / Restart All start it again and need MQ2DanNet (/dex ... /lua run)
 --   /ps ui        - toggle the ImGui window
 --   /ps swap      - manually trigger a PS swap now
 --   /ps scan      - force immediate re-scan and broadcast
@@ -1143,8 +1145,11 @@ end
 --   * character must be present and a valid name (only then can a status establish a peer);
 --   * server must be present and match this toon's server. A sender without a server is
 --     unverified and rejected: the payload's own d.server claim is never used to widen trust.
--- LIMITATION: nothing here can prove these fields beyond what the actor layer reports, and the
--- exact sender mailbox string could not be confirmed in-game (UNVERIFIED), hence both forms.
+-- LIMITATION: nothing here can prove these fields beyond what the actor layer reports. The form
+-- seen in game is the fully qualified "lua:ps_tracker:ps_tracker"; the shorter forms are kept
+-- because they are harmless and exact-match only.
+-- A mailbox exists only while its script runs (the Lua plugin registers none by itself), so an
+-- actor message can never START a script; it can only reach one that is already running.
 -- Returns ok, characterName, serverName.
 local OUR_SCRIPT    = 'ps_tracker'
 -- 'lua:ps_tracker:ps_tracker' is the form actually seen in game ("lua:<script>:<mailbox>").
@@ -1276,6 +1281,21 @@ mailbox = actors.register('ps_tracker', function(message)
         end
         return
     end
+    -- Stop request from Stop All / Restart All on another toon: {type='stop'}. Only a vetted
+    -- sender (our own mailbox, same server) that is a known peer is obeyed, never ourselves. The
+    -- stop is cooperative, exactly like /ps stop: the main loop ends, the normal shutdown runs
+    -- (cancels trades, puts items away) and a 'bye' is sent. Nothing is done in this handler
+    -- except clearing the run flag.
+    if d.type == 'stop' then
+        if sender and sender ~= myName and isKnownPeer(sender) then
+            printf('\ay[PS]\ax Stop requested by \at%s\ax - shutting down.', sender)
+            running = false
+        else
+            logThrottled('stop_ignored', 30000,
+                '\ay[PS]\ax Stop request ignored: sender "%s" is not a known peer.', tostring(sender))
+        end
+        return
+    end
     -- A peer is shutting down: {type='bye', name=name}. Only the peer itself can remove itself.
     if d.type == 'bye' then
         if sender and sender == d.name and validName(d.name) and d.name ~= myName then
@@ -1396,10 +1416,38 @@ end
 -- DanNet.Peers() names are fully qualified ("server_Toon", per the MQ2DanNet docs), so the
 -- local toon is recognised by its short name (the part after the last underscore, compared
 -- case-insensitively) and the ORIGINAL peer string is what is passed to /dex.
--- Stop uses "/ps stop" (the cooperative path: the peer leaves its main loop, runs its normal
--- shutdown, and says goodbye). "/lua stop" would kill the peer's coroutine and skip that cleanup.
+-- Only START needs DanNet (a script that is not running has no actor mailbox to message).
+-- Stop is an actor message {type='stop'} to the peer's own mailbox, handled like /ps stop (the
+-- cooperative path: the peer leaves its main loop, runs its normal shutdown, and says goodbye).
+-- "/lua stop" would kill the peer's coroutine and skip that cleanup. Stop needs no DanNet.
 -- ============================================================
 local pendingRestart = nil   -- { targets = {{full=, short=}}, at = ms, goAt = ms }
+
+local function dannetLoaded()
+    local dn = mq.TLO.Plugin('MQ2DanNet')
+    return dn ~= nil and dn.IsLoaded() == true
+end
+
+-- Ask one running peer (by character name) to stop, through the actor layer.
+local function sendStop(name)
+    mailbox:send({ script='ps_tracker', mailbox='ps_tracker', character=name },
+                 { type='stop', from=myName, server=myServer })
+end
+
+-- Stop All: ask every toon currently reporting ps_tracker to stop (never ourselves).
+local function stopAllPeers()
+    local names = {}
+    for n in pairs(peers) do
+        if n ~= myName and isKnownPeer(n) then names[#names + 1] = n end
+    end
+    table.sort(names)
+    if #names == 0 then
+        printf("\ay[PS]\ax No other toon is reporting ps_tracker - nothing to stop.")
+        return
+    end
+    for _, n in ipairs(names) do sendStop(n) end
+    printf("\ag[PS]\ax Asked %d peer(s) to stop: %s", #names, table.concat(names, ', '))
+end
 
 local function dexTargets()
     local dn = mq.TLO.Plugin('MQ2DanNet')
@@ -1524,7 +1572,7 @@ local function startRestart()
     end
     if #targets == 0 then return end
     for _, t in ipairs(targets) do
-        mq.cmdf("/dex %s /ps stop", t.full)
+        sendStop(t.name)   -- actor message to the running peer; only the start below uses DanNet
     end
     pendingRestart = { targets = targets, at = now }
 end
@@ -2225,24 +2273,38 @@ local function renderUI()
     if imgui.SmallButton("Hide##ps") then showUI = false end
     imgui.SameLine()
 
-    -- Start/Stop/Restart All send a command to every DanNet peer; they only
-    -- ever run when the user clicks the button.
-    if imgui.SmallButton("Start All##ps") then
-        dexAll("/lua run ps_tracker")
+    -- Start All / Restart All start the script on other toons, which only DanNet can do (a script
+    -- that is not running has no actor mailbox). Without the MQ2DanNet plugin those two are drawn
+    -- greyed out with an explanatory tooltip. They only ever run when the user clicks the button.
+    local dnOk = dannetLoaded()
+    local dnTip = "Needs the MQ2DanNet plugin. Without it, run /lua run ps_tracker on each toon."
+    if dnOk then
+        if imgui.SmallButton("Start All##ps") then
+            dexAll("/lua run ps_tracker")
+        end
+    else
+        textCol(C_DIM, "Start All")
+        if imgui.IsItemHovered() then imgui.SetTooltip(dnTip) end
     end
     imgui.SameLine()
-    -- Cooperative stop ("/ps stop"): the peer leaves its main loop and runs its normal shutdown
-    -- (cancels trades, puts items away, says goodbye). "/lua stop" would kill its coroutine and
-    -- skip all of that, so it is not used. The clicking toon itself is never targeted.
+    -- Cooperative stop through the actor layer ({type='stop'}, handled like /ps stop): the peer
+    -- leaves its main loop and runs its normal shutdown (cancels trades, puts items away, says
+    -- goodbye). "/lua stop" would kill its coroutine and skip all of that, so it is not used. The
+    -- clicking toon itself is never targeted. No DanNet needed.
     if imgui.SmallButton("Stop All##ps") then
-        dexAll("/ps stop")
+        stopAllPeers()
     end
     imgui.SameLine()
-    -- Restart All: ask the running peers to stop now; the main loop starts each one again once it
-    -- is confirmed stopped (see restartStep).  mq.delay() must NOT be called here
-    -- (ImGui callbacks are non-yieldable).
-    if imgui.SmallButton("Restart All##ps") and pendingRestart == nil then
-        startRestart()
+    -- Restart All: ask the running peers to stop now (actor message); the main loop starts each one
+    -- again through DanNet once it is confirmed stopped (see restartStep).  mq.delay() must NOT be
+    -- called here (ImGui callbacks are non-yieldable).
+    if dnOk then
+        if imgui.SmallButton("Restart All##ps") and pendingRestart == nil then
+            startRestart()
+        end
+    else
+        textCol(C_DIM, "Restart All")
+        if imgui.IsItemHovered() then imgui.SetTooltip(dnTip) end
     end
     imgui.SameLine()
     textCol(C_WARN, "Power Source Tracker")
