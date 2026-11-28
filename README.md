@@ -74,7 +74,3 @@ Role mapping:
 | `melee` | BER, ROG, MNK, RNG, BST, BRD |
 | `caster` | WIZ, MAG, NEC, ENC |
 | `healer` | CLR, DRU, SHM |
-
-## License
-
-MIT
