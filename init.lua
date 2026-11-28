@@ -426,7 +426,7 @@ local function safeAutoInventory(context, expected)
     return true
 end
 
--- Peer names end up inside /target and /nav command strings: accept letters only.
+-- Peer names end up inside /mqtarget and /nav command strings: accept letters only.
 local function validName(n)
     return type(n) == 'string' and #n <= 40 and n:match('^%a[%a]*$') ~= nil
 end
@@ -475,7 +475,7 @@ local function clickBagSlot(bag, slot)
 end
 
 -- Can this item be given away? It must not be NO TRADE. A single item is picked up with
--- /ctrl /itemnotify; a stack larger than 1 is only offered when STACK_TRADE_ENABLED, and then
+-- /ctrlkey /itemnotify; a stack larger than 1 is only offered when STACK_TRADE_ENABLED, and then
 -- exactly ONE item is split off through QuantityWnd (stackPickStep) and verified (Cursor.Stack == 1)
 -- before it may be placed in the trade window.
 local function tradeable(it)
@@ -1015,10 +1015,10 @@ local function trySwapPSInner(force, strict)
         if busyRecover('equip', best.name) then return false, 'busy' end
         if not slotStillExpected(nil) then return equipRaceRecover('equip', best.name) end
 
-        mq.cmd("/ctrl /itemnotify powersource leftmouseup")
+        mq.cmd("/ctrlkey /itemnotify powersource leftmouseup")
         mq.delay('200ms')
         -- Some items (e.g. Luclinite) still show an attune confirmation dialog
-        -- even with /ctrl.  Click Yes if it appeared after our click (and is about attuning).
+        -- even with /ctrlkey.  Click Yes if it appeared after our click (and is about attuning).
         if clickAttuneConfirm(dlgBefore, best.name) then
             mq.delay('300ms')
         end
@@ -1049,10 +1049,18 @@ local function trySwapPSInner(force, strict)
             return false, 'busy'
         end
         if uiBusy() then return false, 'busy' end
+        -- The swap-out puts the old PS on the cursor and every recovery path (/autoinventory)
+        -- needs a free bag slot. With full bags, do not start: nothing is picked up.
+        local freeSlots = tonumber(mq.TLO.Me.FreeInventory())
+        if freeSlots and freeSlots < 1 then
+            logThrottled('swap_nofree', 30000,
+                '\ay[PS]\ax Swap skipped: no free bag slot (needed to put the old PS away safely). Free one slot and try again.')
+            return false, 'busy'
+        end
         local dlgBefore = confirmDialogOpen()   -- a dialog already open now is never ours
 
-        -- /ctrl required to pick up an equipped item from the slot onto cursor
-        mq.cmd("/ctrl /itemnotify powersource leftmouseup")
+        -- /ctrlkey required to pick up an equipped item from the slot onto cursor
+        mq.cmd("/ctrlkey /itemnotify powersource leftmouseup")
         mq.delay('300ms')
         if cursorName() ~= oldName then
             printf("\ar[PS]\ax Swap failed: could not pick up equipped PS.")
@@ -1078,7 +1086,7 @@ local function trySwapPSInner(force, strict)
         -- The old PS was taken out of the slot above: it must be empty now (or still the same spent item)
         if not slotStillExpected(oldName) then return equipRaceRecover('swap', best.name) end
 
-        mq.cmd("/ctrl /itemnotify powersource leftmouseup")
+        mq.cmd("/ctrlkey /itemnotify powersource leftmouseup")
         mq.delay('200ms')
         if clickAttuneConfirm(dlgBefore, best.name) then
             mq.delay('300ms')
@@ -2124,9 +2132,9 @@ local function autoAcceptStep()
                 equipSM.intended = held
                 equipSM.attuneClicks = 0
                 equipSM.dlgBefore = confirmDialogOpen()   -- a dialog open now is never ours
-                -- /ctrl bypasses the attune confirmation dialog for attunable PS items
-                printf("\ay[PS]\ax Auto-equip: firing /ctrl /itemnotify powersource leftmouseup")
-                mq.cmd("/ctrl /itemnotify powersource leftmouseup")
+                -- /ctrlkey bypasses the attune confirmation dialog for attunable PS items
+                printf("\ay[PS]\ax Auto-equip: firing /ctrlkey /itemnotify powersource leftmouseup")
+                mq.cmd("/ctrlkey /itemnotify powersource leftmouseup")
                 equipSM.phase  = 3
                 equipSM.nextAt = now + 400   -- wait for equip animation
             end
@@ -2135,7 +2143,7 @@ local function autoAcceptStep()
 
     -- ---- Auto-equip phase 3: handle attune dialog, then check cursor ----
     if equipSM.phase == 3 and now >= equipSM.nextAt then
-        -- Some items (e.g. Luclinite) show a confirmation dialog even with /ctrl.
+        -- Some items (e.g. Luclinite) show a confirmation dialog even with /ctrlkey.
         -- Click Yes (a bounded number of times) and loop back for another tick.
         if equipSM.attuneClicks < 5 and clickAttuneConfirm(equipSM.dlgBefore, equipSM.intended) then
             equipSM.attuneClicks = equipSM.attuneClicks + 1
@@ -2663,7 +2671,7 @@ end
 
 -- Pick exactly ONE item out of a stack onto the cursor. Runs one bounded, non-blocking step per
 -- tradeStep tick (no mq.delay). `held` is the current cursor item name (or nil).
---   1. '/ctrl /itemnotify in packN M leftmouseup' (issued by the caller) is the split click on
+--   1. '/ctrlkey /itemnotify in packN M leftmouseup' (issued by the caller) is the split click on
 --      this client (confirmed in game: one item lands on the cursor; Shift-click picked up the
 --      whole stack). It either puts one item on the cursor directly (accepted below only when
 --      Stack() == 1) or opens QuantityWnd, which steps 2 and 3 then drive. Only those
@@ -2790,12 +2798,12 @@ local function tradeStep()
         if (mq.TLO.Target.Name() or '') ~= tradeSM.destName or (mq.TLO.Target.Type() or '') ~= 'PC' then
             printf("\ay[PS]\ax [trade:nav] targeting %s", tradeSM.destName)
             -- Exact-name spawn search ("pc =Name"), so a similarly named mob/corpse is never picked
-            mq.cmdf("/target pc =%s", tradeSM.destName)
+            mq.cmdf("/mqtarget pc =%s", tradeSM.destName)
             tradeSM.navTries = tradeSM.navTries + 1
             tradeSM.nextTick = now + 600
             return
         end
-        local dist = mq.TLO.Target.Distance() or 999
+        local dist = mq.TLO.Target.Distance3D() or 999
         if dist > 12 then
             local nav = mq.TLO.Plugin('MQ2Nav')
             local mu  = mq.TLO.Plugin('MQ2MoveUtils')
@@ -2865,7 +2873,7 @@ local function tradeStep()
     elseif tradeSM.phase == 'open' then
         -- In EQ, /click left target on a PC only opens the trade window when you
         -- have an item on the cursor.  The mechanic is:
-        --   1. Pick up the item via /ctrl /itemnotify -> item lands on cursor
+        --   1. Pick up the item via /ctrlkey /itemnotify -> item lands on cursor
         --   2. /click left target -> EQ opens TradeWnd and places cursor item in slot 0
         -- (Confirmed in EZInventory inventory_actor.lua lines 1427-1439.)
         -- The cursor must hold exactly the item we are giving; nothing else is ever traded.
@@ -2930,7 +2938,7 @@ local function tradeStep()
 
         -- The destination must still be targeted and close by
         if (mq.TLO.Target.Name() or '') ~= tradeSM.destName
-           or (mq.TLO.Target.Distance() or 999) > 20 then
+           or (mq.TLO.Target.Distance3D() or 999) > 20 then
             abortTrade("target changed or destination moved away")
             return
         end
@@ -2992,9 +3000,9 @@ local function tradeStep()
                 -- Shift-click picked up the WHOLE stack and was caught by the Stack()==1 check).
                 -- Either one item lands on the cursor, or QuantityWnd opens (handled by stackPickStep).
                 if slot == 0 then
-                    mq.cmdf("/ctrl /itemnotify pack%d leftmouseup", bag)
+                    mq.cmdf("/ctrlkey /itemnotify pack%d leftmouseup", bag)
                 else
-                    mq.cmdf("/ctrl /itemnotify in pack%d %d leftmouseup", bag, slot)
+                    mq.cmdf("/ctrlkey /itemnotify in pack%d %d leftmouseup", bag, slot)
                 end
                 tradeSM.nextTick = now + 400   -- wait for QuantityWnd to open
                 return
@@ -3004,11 +3012,11 @@ local function tradeStep()
             if slot == 0 then
                 printf('\ay[PS]\ax [trade:open] picking up "%s" from pack%d (top-level)',
                     tradeSM.itemName, bag)
-                mq.cmdf("/ctrl /itemnotify pack%d leftmouseup", bag)
+                mq.cmdf("/ctrlkey /itemnotify pack%d leftmouseup", bag)
             else
                 printf('\ay[PS]\ax [trade:open] picking up "%s" from pack%d slot %d',
                     tradeSM.itemName, bag, slot)
-                mq.cmdf("/ctrl /itemnotify in pack%d %d leftmouseup", bag, slot)
+                mq.cmdf("/ctrlkey /itemnotify in pack%d %d leftmouseup", bag, slot)
             end
             tradeSM.nextTick = now + 500   -- wait for pick-up animation
         elseif held == tradeSM.itemName and not tradeSM.pickIssued then
@@ -3331,6 +3339,20 @@ end
 -- ============================================================
 printf("\ay[PS]\ax Running for \at%s\ax (%s / %s). /ps stop to quit.",
        myName, myClass, myRole)
+
+-- One-time hint: plugins that grab the cursor or auto-answer trade/loot windows can fight the
+-- script's pickups. Informational only; nothing is unloaded or changed.
+do
+    local clash = {}
+    for _, p in ipairs({ 'MQ2Cursor', 'MQ2AutoLoot', 'MQ2AutoAccept' }) do
+        local pl = mq.TLO.Plugin(p)
+        if pl and pl.IsLoaded() == true then clash[#clash + 1] = p end
+    end
+    if #clash > 0 then
+        printf("\ay[PS]\ax Note: %s loaded. Plugins that act on the cursor or on trade windows can interfere with item handling; if a pickup or trade fails, try unloading them.",
+               table.concat(clash, ', '))
+    end
+end
 
 while running do
     local now = mq.gettime()
